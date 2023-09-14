@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:c="http://www.springframework.org/schema/c"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.3.xsd">
+	
+	<context:component-scan base-package="kr.or.ddit" use-default-filters="false">
+			<context:include-filter type="annotation" 
+							expression="org.springframework.stereotype.Controller"/>
+			<context:exclude-filter type="annotation" 
+							expression="org.springframework.web.bind.annotation.ControllerAdvice"/>
+			</context:component-scan>
+	
+<!-- 	RequestMappingHandlerMapping : @Controller/@RequestMapping 을 트레이싱해서 컨트롤러 정보를 수집함.  -->
+<!-- 								하나의 요청을 처리함 컨트롤러를 검색. -->
+<!-- 	RequestMappingHandlerAdapter : @RequestMapping 으로 등록된 컨트롤러(핸들러 메소드)를 실행함. -->
+<!-- 	ViewResolverComposite : 등록된 ViewResolver 들이 설정된 order에 따라 동작하도록 제어함.  -->
+								
+	<mvc:annotation-driven></mvc:annotation-driven>
+	
+	<!-- 	얘는 tiles 뒤에 제일 끝에서 동작해야돼 p:order="" 이거 빼주면 순서 제일 마지막에 동작 -->
+	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver" 
+		p:prefix="/WEB-INF/views/"
+		p:suffix=".jsp"/>
+	
+	<!-- 	tiles 설정 끝  -->
+	<bean class="org.springframework.web.servlet.view.tiles3.TilesConfigurer" 
+		p:definitions="/WEB-INF/tiles/*-definitions.xml"/>
+	
+	<!-- 얘가 1등으로 받아 defintion을 비교해보고 ..  -->
+	<bean class="org.springframework.web.servlet.view.tiles3.TilesViewResolver" 
+		p:order="1"/>
+	
+	
+	<util:constant id="disableFeature" static-field="com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS"/>
+	
+	<bean id="jackson2ObjectMapper" class="org.springframework.http.converter.json.Jackson2ObjectMapperFactoryBean"> 
+		<property name="featuresToDisable">
+			<array>
+				<ref bean="disableFeature"/>
+			</array>
+		</property>		
+	</bean>
+	
+	<bean id="jsonView" class="org.springframework.web.servlet.view.json.MappingJackson2JsonView"
+		p:objectMapper-ref="jackson2ObjectMapper"
+	/>
+	
+	<bean id="downloadView" class="kr.or.ddit.board.view.AtchDownloadView"/>
+	
+	<bean class="org.springframework.web.servlet.view.BeanNameViewResolver" 
+		p:order="2"
+	/>
+	
+<!-- 	핸들러매핑이 등록 정적자원중에 resource 폴더뒤로 들어온 애들을 위치로 보내주는 역할 -->
+	<mvc:resources location="/resources/" mapping="/resources/**" cache-period="0" />
+	
+	<bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource" 
+		p:basenames="kr/or/ddit/msg/Messages"
+	/>
+	
+	<bean id="localeResolver" class="org.springframework.web.servlet.i18n.CookieLocaleResolver" 
+		p:cookiePath="/"
+		p:cookieName="langCookie"
+		p:cookieMaxAge="#{60*60*24*7}"
+	/>
+	
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**"/>
+			<bean class="org.springframework.web.servlet.i18n.LocaleChangeInterceptor" 
+				p:paramName="lang"
+			/>
+		</mvc:interceptor>
+	</mvc:interceptors>
+</beans>

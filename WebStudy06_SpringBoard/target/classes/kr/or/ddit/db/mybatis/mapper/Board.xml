@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.or.ddit.board.dao.FreeboardDAO">
+	<!-- <insert id="insertBoard" parameterType="FreeboardVO"></insert> -->
+
+	<sql id="searchFrag">
+		<where>
+			<if
+				test="simpleCondition neq null and simpleCondition.searchWord neq null and not simpleCondition.searchWord.isEmpty()">
+				<choose>
+					<when test="simpleCondition.searchType eq 'writer'">
+						INSTR(BO_WRITER, #{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'title'">
+						INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+					</when>
+					<when test="simpleCondition.searchType eq 'content'">
+						INSTR(BO_CONTENT, #{simpleCondition.searchWord}) >
+						0
+					</when>
+					<otherwise>
+						INSTR(BO_WRITER, #{simpleCondition.searchWord}) > 0
+						or
+						INSTR(BO_TITLE, #{simpleCondition.searchWord}) > 0
+						or
+						INSTR(BO_CONTENT, #{simpleCondition.searchWord}) > 0
+					</otherwise>
+				</choose>
+			</if>
+		</where>
+	</sql>
+
+	<select id="selectTotalRecord" resultType="long"
+		parameterType="PaginationInfo">
+		select COUNT(*)
+		FROM FREEBOARD
+		<include refid="searchFrag" />
+	</select>
+
+
+
+
+	<select id="selectBoardList" resultType="FreeboardVO">
+		SELECT B.*
+		FROM(
+		SELECT ROWNUM RNUM, A.*
+		FROM(
+		SELECT
+		bo_no,
+		bo_title,
+		bo_writer,
+		bo_date,
+		bo_hit
+		FROM freeboard
+		<!-- 동적인 쿼리 -->
+		<include refid="searchFrag" />
+		ORDER BY BO_NO DESC
+		) A
+		)B
+			<![CDATA[ 
+			WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+			]]>
+	</select>
+	
+
+
+
+
+	<resultMap type="FreeboardVO" id="boardMap" autoMapping="true">
+		<id property="boNo" column="BO_NO" />
+<!-- 		1:1관계 -->
+		<association property="fileGroup" javaType="AtchFileVO">
+			<id property="atchFileId" column="ATCH_FILE_ID"/>
+<!-- 			1:N관계 -->
+			<result property="creatDt" column="CREAT_DT"/>
+			<result property="useAt" column="USE_AT"/>
+			<collection property="detailList" ofType="AtchFileDetailVO" autoMapping="true">
+				<id property="atchFileId" column="ATCH_FILE_ID"/>
+				<id property="fileSn" column="FILE_SN"/>
+			</collection>
+		</association>
+	</resultMap>
+
+	<select id="fredBoard" parameterType="int" resultMap="boardMap">
+		WITH ATCH_FILE_VIEW AS(
+		SELECT *
+		FROM ATCH_FILE INNER JOIN ATCH_FILE_DETAIL
+		USING(ATCH_FILE_ID)
+		)
+
+		select
+		BO_NO, BO_TITLE, BO_WRITER
+		, BO_IP, BO_MAIL, BO_PASS
+		, BO_CONTENT, BO_DATE, BO_HIT
+		
+		
+		, ATCH_FILE_ID, FILE_SN
+		, FILE_STRE_COURS, STRE_FILE_NM
+		, ORIGNL_FILE_NM, FILE_EXTSN, FILE_CN
+		, FILE_SIZE, FILE_MIME
+		
+		
+		, CREAT_DT, USE_AT
+		from freeboard left outer join ATCH_FILE_VIEW using (atch_file_id)
+		WHERE BO_NO = #{boNo}
+	</select>
+
+	<insert id="insertBoard" parameterType="FreeboardVO">
+		<selectKey order="BEFORE" resultType="int"
+			keyProperty="boNo">
+			SELECT FREEBOARD_SEQ.nextval
+			FROM DUAL
+		</selectKey>
+
+		INSERT INTO freeboard (
+		BO_NO,
+		BO_TITLE,
+		BO_WRITER,
+		BO_IP,
+		BO_MAIL,
+		BO_PASS,
+		BO_CONTENT,
+		BO_DATE,
+		BO_HIT
+		,ATCH_FILE_ID
+		) VALUES (
+		#{boNo,jdbcType=NUMERIC}
+		,
+		#{boTitle,jdbcType=VARCHAR}
+		, #{boWriter,jdbcType=VARCHAR}
+		,
+		#{boIp,jdbcType=VARCHAR}
+		, #{boMail,jdbcType=VARCHAR}
+		,
+		#{boPass,jdbcType=VARCHAR}
+		, #{boContent,jdbcType=CLOB}
+		, sysdate
+		, 0
+		, #{atchFileId,jdbcType=NUMERIC}
+		)
+	</insert>
+	
+<!-- 	<delete id="deleteBoard" parameterType="String"> -->
+<!-- 		DELETE FROM freeboard -->
+<!-- 		WHERE -->
+<!--         bo_no = #{boNo} -->
+<!-- 	</delete> -->
+</mapper>
